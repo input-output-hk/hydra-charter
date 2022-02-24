@@ -1,0 +1,73 @@
+<img id="result"/>
+<br>
+<iframe id="result_frame"></iframe>
+<br>
+<textarea id="debug_output"></textarea>
+<br>
+<script src='gnuplot_api.js'></script>
+<script>
+    var config = @config@;
+    gnuplot = new Gnuplot('gnuplot.js');
+    for (var name in config.files) {
+        gnuplot.putFile(name, config.files[name]);
+    }
+    function gnuPlotRun(script) {
+      return new Promise(function (resolve, reject) {
+        gnuplot.run(script, resolve);
+      });
+    }
+    function gnuPlotGetFile(filename) {
+      return new Promise(function (resolve, reject) {
+        gnuplot.getFile(filename, function (e) {
+          if (!e.content) {
+            reject("error");
+            return;
+          }
+          resolve(e.content);
+        });
+      });
+    }
+    function doGraph(extraScript) {
+      gnuPlotRun(config.script + "\n" + extraScript)
+        .then(() => {
+            return gnuPlotGetFile("out.svg");
+        })
+        .then(image => {
+
+          var img = document.getElementById('result');
+          try {
+              var ab = new Uint8Array(image);
+              var result = "";
+              for (var i = 0; i < ab.length; i++) {
+                result += String.fromCharCode(ab[i]);
+              }
+              console.log(result);
+              var blob = new Blob([ab], {"type": "image\/svg+xml"});
+              //var blob = new Blob([ab], {"type": "text\/html"});
+              window.URL = window.URL || window.webkitURL;
+              img.src = window.URL.createObjectURL(blob);
+              document.getElementById('debug_output').value = result;
+              //img.srcdoc = result;
+          } catch (err) { // in case blob / URL missing, fallback to data-uri
+              var rstr = '';
+              for (var i = 0; i < image.length; i++)
+                rstr += String.fromCharCode(image[i]);
+              img.src = 'data:image\/svg+xml;base64,' + btoa(rstr);
+          }
+        });
+    }
+    doGraph("");
+  function addfile(filename) {
+    var req = new XMLHttpRequest();
+    req.addEventListener("load", function () {
+      console.log(this);
+      if (this.status == 200) {
+        gnuplot.putFile(filename, this.responseText);
+        doGraph("plot \"" + filename + "\" using 1:2 title 'extra file'\n");
+      }
+    });
+    req.open("GET", filename);
+    req.send();
+  }
+</script>
+<input type="button" onclick='addfile("second-file.txt")' value="get second file">
