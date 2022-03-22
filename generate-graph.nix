@@ -34,5 +34,23 @@ in substituteAll {
         7 8 9
       '';
     };
+    neededFiles = [ "lk.bin" ];
+    processScript = ''
+      function (files) {
+        const view = new Int8Array(files."lk.bin");
+        function sum(previous, current) {
+          return previous + current;
+        }
+        return {
+          files = {
+            "file1.txt" = view.reduce(sum)
+          };
+          plotCommands = {
+            graph1 = "plot \"file1.txt\" using 1:2";
+          };
+        };
+      }
+    '';
+    graphOrder = [ "graph2" "graph1" ];
   };
 }
